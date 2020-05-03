@@ -19,7 +19,7 @@ namespace ELF_HEADER
     constexpr WORD  machine_type           = 0x3E;         //machine type
     constexpr DWORD version                = 0x1;          //version
 
-    constexpr DWORD entry                  = 0x4000B0;     //entry_point
+    constexpr DWORD entry                  = 0x400130;     //entry_point
     constexpr DWORD _0                     = 0x0;          //...
 
     constexpr DWORD program_header_offset  = 0x40;
@@ -42,7 +42,7 @@ namespace PROGRAM_HEADER_CONST
     constexpr DWORD RE                = 0x5;                //Read and execute
     constexpr DWORD RW                = 0x6;                //Read and write
     constexpr QWORD virtual_address1  = 0x400000;
-    constexpr QWORD virtual_address2  = 0x6000D4;
+//    constexpr QWORD virtual_address2  = 0x600154;           //data needs initialisation
 //    constexpr QWORD size_address1     = 0x00000000000000D2;
     constexpr QWORD size_address2     = 0x1;
     constexpr QWORD align             = 0x200000;
@@ -66,6 +66,39 @@ struct PROGRAM_HEADER
 private:
     void set_program_header ();
         
+};
+
+namespace SECTION_HEADER_CONST
+{
+    constexpr DWORD head_type         = 0x1;
+    constexpr QWORD alloc_and_execute = 0x6;
+    constexpr QWORD alloc_and_write   = 0x3;
+
+    constexpr QWORD text_offset       = 0x130;
+    constexpr QWORD memory_offset     = 0x600000;
+    
+       
+}
+
+struct SECTION_HEADER
+{
+    QWORD flags;
+    QWORD virtual_address;
+    QWORD real_address;
+    QWORD size;
+    QWORD align;
+   
+    SECTION_HEADER (const QWORD& flags, const QWORD& virtual_address, const QWORD& real_adress, 
+                    const QWORD& size,  const QWORD& align):
+        flags           (flags),
+        virtual_address (virtual_address),
+        real_address    (real_adress),
+        size            (size),
+        align           (align) 
+        { set_section_header (); }
+
+private:
+    void set_section_header ();
 };
 
 inline void set_zero_byte (const size_t& bytes)
@@ -97,11 +130,20 @@ void PROGRAM_HEADER::set_program_header ()
     set_val (virtual_address);
     set_val (memory_size);
     set_val (memory_size);
-    set_val (PROGRAM_HEADER_CONST::align);
+    set_val (PROGRAM_HEADER_CONST::align);;
 }
 
-namespace SECTION_TABLE
+void SECTION_HEADER::set_section_header ()
 {
+    set_val ( (DWORD) 0x0);
+    set_val (SECTION_HEADER_CONST::head_type);
+    set_val (flags);
+    set_val (virtual_address);
+    set_val (real_address);
+    set_val (size);
+    set_val ( (QWORD) 0x0);
+    set_val (align);
+    set_val ( (QWORD) 0x0);
 }
 
 void Make_elf_header (const DWORD& section_header_offset)
@@ -146,32 +188,22 @@ void Make_elf_header (const DWORD& section_header_offset)
 
 void Make_program_header (const QWORD& size_address1) //size_of_excutable_code
 {
-using namespace PROGRAM_HEADER_CONST; 
+    using namespace PROGRAM_HEADER_CONST; 
 
     PROGRAM_HEADER elf_program_headers[2] = { 
-        PROGRAM_HEADER (RE, 0x0,  virtual_address1, size_address1), 
-        PROGRAM_HEADER (RW, 0xD4, virtual_address2, size_address2) };
+        PROGRAM_HEADER (RE, 0x0,   virtual_address1,                    size_address1), 
+        PROGRAM_HEADER (RW, 0x0,   SECTION_HEADER_CONST::memory_offset, size_address2) };
 }
 
 
-void Make_section_table ()
+void Make_section_header (const QWORD& adress1, const QWORD& size1, const QWORD& adress2, const QWORD& size2)
 {
-    using namespace SECTION_TABLE;
-//
-//    for (size_t i = 0; i < 3; i++)
-//    {
-//        for (size_t j = 0; j < 2; j++)
-//            set_val (name[i][j]);
-//
-//        set_val (virtual_size);
-//        set_val (virtual_address[i]);
-//        set_val (size_of_raw_data);
-//        set_val (pointer_to_raw_data[i]);
-//
-//        set_zero_byte (unused_bytes12);
-//
-//        set_val (characteristics[i]);
-//    }
+    using namespace SECTION_HEADER_CONST;
+
+    SECTION_HEADER elf_section_headers[2] = { 
+        SECTION_HEADER (alloc_and_execute, 0x400000 + text_offset, text_offset,   size1, 0x10), 
+        SECTION_HEADER (alloc_and_write,   0x0                  , memory_offset, size2, 0x4) };
+
 }
 
 void Make_executable_code (const unsigned char* execut_code, size_t size)
@@ -179,5 +211,6 @@ void Make_executable_code (const unsigned char* execut_code, size_t size)
     memcpy (&code[code_size], execut_code, size);
     code_size += size;
 }
+
 
 

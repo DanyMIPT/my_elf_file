@@ -30,7 +30,7 @@ namespace ELF_HEADER
     constexpr DWORD version                = 0x1;          //version
 
     constexpr DWORD virtual_memory_start   = 0x400000;     //entry_point
-    constexpr DWORD entry                  = 0x134; 
+    constexpr DWORD entry                  = 0x138; 
     constexpr DWORD _0                     = 0x0;          //...
 
     constexpr DWORD program_header_offset  = 0x40;
@@ -53,7 +53,6 @@ namespace PROGRAM_HEADER_CONST
     constexpr DWORD head_type         = 0x1;                //Loadable segment
     constexpr DWORD RE                = 0x5;                //Read and execute
     constexpr DWORD RW                = 0x6;                //Read and write
-//    constexpr QWORD virtual_address2  = 0x600154;           //data needs initialisation
     constexpr QWORD size_address2     = 0x4;
     constexpr QWORD align             = 0x200000;
 }
@@ -84,7 +83,7 @@ namespace SECTION_HEADER_CONST
     constexpr QWORD alloc_and_execute = 0x6;
     constexpr QWORD alloc_and_write   = 0x3;
 
-    constexpr QWORD text_offset       = 0x130;
+    constexpr QWORD text_offset       = 0x138;
     constexpr QWORD memory_offset     = 0x600000;
 
 
@@ -335,7 +334,7 @@ void pass_mul ()
     set_val (prefix::REX_WB, functions::mov_reg, rm_byte::rax_r14,     // mov r14, rax
              (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
              prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
-             prefix::REX_WB, functions::mul, rm_byte::mul_r14,         // mul r14
+             prefix::REX_WB, functions::mul, rm_byte::mul_r10,         // mul r10
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
 }
@@ -376,22 +375,25 @@ void pass_in ()
               (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,              // mov rdx, 1
               functions::int80h);                                                       // int 80h
 
-    set_val (prefix::REX_W, functions::sub_mem, rm_byte::sib_follow_sm,       //sub [virtual_memory], 30
+    restore_abcd ();
+
+    set_val (prefix::word, functions::sub_mem, rm_byte::sib_follow_sm,                  //sub [virtual_memory], 30
              sib_byte::subq_my_sib, (DWORD) ELF_HEADER::memory_place, (BYTE) 0x30,
 
-             functions::push_mem, rm_byte::sib_follow_p,                      //push [virtual_memory]  
+             functions::push_mem, rm_byte::sib_follow_p, 
+             sib_byte::subq_my_sib,         //push [virtual_memory]  
              (DWORD) ELF_HEADER::memory_place);
-    restore_abcd ();
+
     
 }
 
 void pass_out ()
 {
+    set_val (prefix::REX_B, (BYTE) (functions::pop_reg + r13));                         // pop r13
     save_abcd ();
 
     set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,              // mov eax, 4
               (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x1,              // mov ebx, 1
-              prefix::REX_B, (BYTE) (functions::pop_reg + r13),                         // pop r13
 
               prefix::REX_WR, functions::mov_reg, rm_byte::sib_follow_sm,               // mov [virtual_memory], r13
               sib_byte::subq_my_sib, (DWORD) ELF_HEADER::memory_place,
@@ -407,7 +409,6 @@ void pass_out ()
 
 void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_binary_code)
 {
-    unsigned int rip = code_size + 1 - ELF_HEADER::entry;
 
     switch (binary_code[i])
     {
@@ -428,7 +429,7 @@ void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_b
 
                 case JA:
                 {
-                    set_val (jumps::ja);
+                    set_val (prefix::short_, jumps::ja);
                     break;
                 }
 
@@ -442,19 +443,14 @@ void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_b
         }
     }
 
-    std::cout << "*(int*)(&binary_code[i + 1] + 8) = " << *(int*)(&binary_code[i + 1]) + 8 << "\n" <<
-              "label_binary_code[*(int*)(&binary_code[i + 1]) = 8] = " << label_binary_code[*(int*)(&binary_code[i + 1]) + 8] << "\n" <<
-              "code_size" << code_size << "\n";
+
     set_val ( (DWORD) (label_binary_code[*(int*)(&binary_code[i + 1]) + 8] - code_size - sizeof (int)));
-    //std::cout << *(int*)(&binary_code[i + 1]) + 8 << std::endl;
     i += sizeof (int);
 }
 
 void pass_call (const unsigned char* binary_code, size_t& i, const int* label_binary_code)
 {
-    unsigned int rip = code_size + 1 - ELF_HEADER::entry;
-
-    set_val (functions::call, (DWORD) (label_binary_code[*(int*)(&binary_code[i + 1])] - code_size - sizeof (int)));
+    set_val (functions::call, (DWORD) (label_binary_code[*(int*)(&binary_code[i + 1]) + 8] - code_size - sizeof (int) - 1));
 
     i += 2*sizeof (int);
 }

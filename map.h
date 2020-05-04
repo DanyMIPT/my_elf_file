@@ -54,6 +54,9 @@ namespace prefix
     const BYTE REX_WB  = 0x49;
     const BYTE REX_WR  = 0x4C;
     const BYTE REX_WRB = 0x4D;
+
+    const BYTE short_  = 0x0F;
+    const BYTE word    = 0x66;
 }
 
 namespace functions
@@ -62,7 +65,7 @@ namespace functions
 
     const BYTE mul      = 0xF7;
     const BYTE sub      = 0x29;
-    const BYTE sub_mem  = 0x83;
+    const BYTE sub_mem  = 0x80;
     const BYTE cmp      = 0x39;
     const BYTE call     = 0xE8;
     const BYTE mov_reg  = 0x89;
@@ -80,14 +83,14 @@ namespace functions
 namespace jumps
 {
     const BYTE jmp = 0xE9;
-    const BYTE ja  = 0x77;
+    const BYTE ja  = 0x87;
 }
 
 namespace rm_byte
 {
     const BYTE rax_r14       = 0xC6;
     const BYTE r14_rax       = 0xF0;
-    const BYTE mul_r14       = 0xE6;
+    const BYTE mul_r10       = 0xE2;
     const BYTE r9_r8         = 0xC1;
     const BYTE sib_follow_sm = 0x2C;
     const BYTE sib_follow_p  = 0x34;

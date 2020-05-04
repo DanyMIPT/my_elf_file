@@ -6,6 +6,16 @@ typedef unsigned short      WORD;
 char*  code      = nullptr;
 size_t code_size = 0;
 
+void pass_push    (const unsigned char* binary_code, size_t& i);
+void pass_pop     (const unsigned char* binary_code, size_t& i);
+void pass_mul     ();
+void pass_sub     ();
+void pass_in      ();
+void pass_out     ();
+void restore_abcd ();
+void save_abcd    ();
+void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_bin_code);
+
 namespace ELF_HEADER
 {
     constexpr DWORD signature              = 0x464C457F;   //Сигнатура elf файла
@@ -19,11 +29,11 @@ namespace ELF_HEADER
     constexpr WORD  machine_type           = 0x3E;         //machine type
     constexpr DWORD version                = 0x1;          //version
 
-    constexpr DWORD entry                  = 0x400130;     //entry_point
+    constexpr DWORD virtual_memory_start   = 0x400000;     //entry_point
+    constexpr DWORD entry                  = 0x134; 
     constexpr DWORD _0                     = 0x0;          //...
 
     constexpr DWORD program_header_offset  = 0x40;
-//    constexpr DWORD section_header_offset  = 0x200;
 
     constexpr WORD elf_header_size         = 0x40;
     constexpr WORD size_of_program_header  = 0x38;
@@ -34,6 +44,8 @@ namespace ELF_HEADER
     constexpr WORD section_header_num_entr = 0x2;
 
     constexpr WORD index_of_shstrtab       = 0x5;
+
+    const QWORD memory_place = 0x600130; 
 }
 
 namespace PROGRAM_HEADER_CONST
@@ -41,31 +53,29 @@ namespace PROGRAM_HEADER_CONST
     constexpr DWORD head_type         = 0x1;                //Loadable segment
     constexpr DWORD RE                = 0x5;                //Read and execute
     constexpr DWORD RW                = 0x6;                //Read and write
-    constexpr QWORD virtual_address1  = 0x400000;
 //    constexpr QWORD virtual_address2  = 0x600154;           //data needs initialisation
-//    constexpr QWORD size_address1     = 0x00000000000000D2;
-    constexpr QWORD size_address2     = 0x1;
+    constexpr QWORD size_address2     = 0x4;
     constexpr QWORD align             = 0x200000;
-}    
+}
 
 struct PROGRAM_HEADER
 {
     DWORD flags;
     QWORD offset;
-    QWORD virtual_address; 
+    QWORD virtual_address;
     QWORD memory_size;       //number of elements in memory
-    
-    PROGRAM_HEADER (const DWORD& flags,           const QWORD& offset, 
+
+    PROGRAM_HEADER (const DWORD& flags,           const QWORD& offset,
                     const QWORD& virtual_address, const QWORD& memory_size):
-        flags (flags),
-        offset (offset),
-        virtual_address (virtual_address),
-        memory_size (memory_size) 
-        { set_program_header (); }
+            flags (flags),
+            offset (offset),
+            virtual_address (virtual_address),
+            memory_size (memory_size)
+    { set_program_header (); }
 
 private:
     void set_program_header ();
-        
+
 };
 
 namespace SECTION_HEADER_CONST
@@ -76,8 +86,8 @@ namespace SECTION_HEADER_CONST
 
     constexpr QWORD text_offset       = 0x130;
     constexpr QWORD memory_offset     = 0x600000;
-    
-       
+
+
 }
 
 struct SECTION_HEADER
@@ -87,15 +97,15 @@ struct SECTION_HEADER
     QWORD real_address;
     QWORD size;
     QWORD align;
-   
-    SECTION_HEADER (const QWORD& flags, const QWORD& virtual_address, const QWORD& real_adress, 
+
+    SECTION_HEADER (const QWORD& flags, const QWORD& virtual_address, const QWORD& real_adress,
                     const QWORD& size,  const QWORD& align):
-        flags           (flags),
-        virtual_address (virtual_address),
-        real_address    (real_adress),
-        size            (size),
-        align           (align) 
-        { set_section_header (); }
+            flags           (flags),
+            virtual_address (virtual_address),
+            real_address    (real_adress),
+            size            (size),
+            align           (align)
+    { set_section_header (); }
 
 private:
     void set_section_header ();
@@ -113,86 +123,55 @@ inline void set_zero_byte_until (const size_t& until)
         code[code_size++] = 0x00;
 }
 
-template<typename TypeValue>
+
+template <class TypeValue>
 inline void set_val (const TypeValue& value)
 {
     *( (TypeValue*) &code[code_size]) = value;
     code_size += sizeof (TypeValue);
 }
 
+template<typename FirstValue, typename... Others>
+inline void set_val (const FirstValue& first, const Others&... value)
+{
+    *( (FirstValue*) &code[code_size]) = first;
+    code_size += sizeof (FirstValue);
+
+    set_val (value...);
+}
+
+
+
 
 void PROGRAM_HEADER::set_program_header ()
 {
-    set_val (PROGRAM_HEADER_CONST::head_type);
-    set_val (flags);
-    set_val (offset);
-    set_val (virtual_address);
-    set_val (virtual_address);
-    set_val (memory_size);
-    set_val (memory_size);
-    set_val (PROGRAM_HEADER_CONST::align);;
+    set_val (PROGRAM_HEADER_CONST::head_type, flags, offset, virtual_address, virtual_address, 
+             memory_size, memory_size,        PROGRAM_HEADER_CONST::align);
 }
 
 void SECTION_HEADER::set_section_header ()
 {
-    set_val ( (DWORD) 0x0);
-    set_val (SECTION_HEADER_CONST::head_type);
-    set_val (flags);
-    set_val (virtual_address);
-    set_val (real_address);
-    set_val (size);
-    set_val ( (QWORD) 0x0);
-    set_val (align);
-    set_val ( (QWORD) 0x0);
+    set_val ( (DWORD) 0x0,  SECTION_HEADER_CONST::head_type, flags, virtual_address, 
+              real_address, size,   (QWORD) 0x0, align,     (QWORD) 0x0);
 }
 
 void Make_elf_header (const DWORD& section_header_offset)
 {
     using namespace ELF_HEADER;
 
-    set_val (signature);
-
-    set_val (elf_class);
-    set_val (endian_type);
-    set_val (format_version);
-    
-    set_zero_byte (one_byte);
-
-    set_val (file_type);
-    set_val (machine_type);
-    set_val (version);
-    set_val (entry);
-
-    set_zero_byte (one_byte >> 1);
-    
-    set_val (program_header_offset);
-    
-    set_zero_byte (one_byte >> 1);
-
-    set_val (section_header_offset);
-
-    set_zero_byte (one_byte >> 1);
-
-    set_zero_byte (one_byte >> 1);
-
-    set_val (elf_header_size);
-
-
-
-    set_val (size_of_program_header);
-    set_val (number_of_prog_entr);
-    set_val (section_header_size);
-    set_val (section_header_num_entr);
-    set_val (index_of_shstrtab);
+    set_val (signature,               elf_class, endian_type, format_version,  (QWORD) 0x0, file_type,
+             machine_type,            version,   virtual_memory_start + entry, (DWORD) 0x0, program_header_offset,
+             (DWORD) 0x0,             section_header_offset,  (QWORD) 0x0,     elf_header_size, size_of_program_header, 
+             number_of_prog_entr, section_header_size, section_header_num_entr, index_of_shstrtab);
 }
 
 void Make_program_header (const QWORD& size_address1) //size_of_excutable_code
 {
-    using namespace PROGRAM_HEADER_CONST; 
+    using namespace PROGRAM_HEADER_CONST;
 
-    PROGRAM_HEADER elf_program_headers[2] = { 
-        PROGRAM_HEADER (RE, 0x0,   virtual_address1,                    size_address1), 
-        PROGRAM_HEADER (RW, 0x0,   SECTION_HEADER_CONST::memory_offset, size_address2) };
+    PROGRAM_HEADER elf_program_headers[2] = {
+            PROGRAM_HEADER (RE, 0x0,   ELF_HEADER::virtual_memory_start,   size_address1),
+            PROGRAM_HEADER (RW, 0x0,   SECTION_HEADER_CONST::memory_offset, size_address2) };
 }
 
 
@@ -200,17 +179,256 @@ void Make_section_header (const QWORD& adress1, const QWORD& size1, const QWORD&
 {
     using namespace SECTION_HEADER_CONST;
 
-    SECTION_HEADER elf_section_headers[2] = { 
-        SECTION_HEADER (alloc_and_execute, 0x400000 + text_offset, text_offset,   size1, 0x10), 
-        SECTION_HEADER (alloc_and_write,   0x0                  , memory_offset, size2, 0x4) };
+    SECTION_HEADER elf_section_headers[2] = {
+            SECTION_HEADER (alloc_and_execute, 0x400000 + text_offset, text_offset,   size1, 0x10),
+            SECTION_HEADER (alloc_and_write,   0x0,                    memory_offset, size2, 0x4) };
 
 }
 
-void Make_executable_code (const unsigned char* execut_code, size_t size)
+void Make_executable_code ()
 {
-    memcpy (&code[code_size], execut_code, size);
-    code_size += size;
+
+    unsigned char* bin_code = BufferMaker ("binaryCode.bin");
+    size_t file_size = Sizecount ("binaryCode.bin");
+    int* label_bin_code = (int*) calloc (file_size + 1, sizeof (int));
+
+    int j = code_size;
+
+    for (size_t i = 8; i < file_size; i++) // skip signature
+    {
+        label_bin_code[i] = code_size;
+        
+        switch (bin_code[i])
+        {
+            case PUSH:
+            {
+                pass_push (bin_code, i);
+                break;
+            }
+
+            case POP:
+            {
+                pass_pop (bin_code, i);
+                break;
+            }
+
+            case MUL:
+            {
+                pass_mul ();
+                break;
+            }
+
+            case SUB:
+            {
+                pass_sub ();
+                break;
+            }
+
+            case IN:
+            {
+                pass_in ();
+                break;
+            }
+
+            case OUT:
+            {
+                pass_out ();
+                break;
+            }
+
+            case JA:  { }
+            case JAE: { }
+            case JB:  { }
+            case JBE: { }
+            case JE:  { }
+            case JNE: { }
+
+            case JMP:
+            {
+                pass_jumps (bin_code, i, label_bin_code);
+                break;
+            }
+
+
+        }
+    }
+
+    FILE* deb = fopen ("debug", "wb");
+    for (;j < code_size; j++)
+        fprintf (deb, "%c", code[j]);
+    fclose (deb); 
+
+    free (bin_code);
+    free (label_bin_code);
 }
+
+void pass_push (const unsigned char* binary_code, size_t& i)
+{
+    switch (binary_code[i + 1])
+    {
+        case INT_:
+        {
+            code[code_size++] = functions::push_byte;
+            code[code_size++] = *(int*)(&binary_code[i + 1]);
+            i += sizeof (int);
+            break;
+        }
+    
+        case REG:
+        {
+            code[code_size++] = functions::push_reg + reg_compare[binary_code[i + 2]];
+            i += 2 * sizeof (char);
+            break;
+        }
+
+        default:
+        {
+            std::cout << "ERROR";
+        }
+
+    }
+}
+
+void pass_pop (const unsigned char* binary_code, size_t& i)
+{
+    switch (binary_code[i + 1])
+    {
+    
+        case REG:
+        {
+            code[code_size++] = functions::pop_reg + reg_compare[binary_code[i + 2]];
+            i += 2 * sizeof (char);
+            break;
+        }
+
+        default:
+        {
+            std::cout << "ERROR";
+        }
+
+    }
+}
+
+
+
+void pass_mul ()
+{
+    set_val (prefix::REX_WB, functions::mov_reg, rm_byte::r14_rax,     // mov rax, r14
+             functions::pop_reg + reg_compare[ax],                  // pop rax
+             prefix::REX_B, functions::pop_reg + r10,               // pop r10
+             prefix::REX_WB, functions::mul, rm_byte::mul_r14,      // mul r14
+             functions::push_reg + reg_compare[ax],                 // push rax
+             prefix::REX_WR, functions::mov_reg, rm_byte::rax_r14);     // mov r14, rax             
+}
+
+void pass_sub ()
+{
+    set_val (prefix::REX_B,   functions::pop_reg + r8,              // pop r8
+             prefix::REX_B,   functions::pop_reg + r9,              // pop r9
+             prefix::REX_WRB, functions::sub, rm_byte::r9_r8,       // sub r9, r8
+             prefix::REX_B,   functions::push_reg + r9);            // push r9    
+} 
+
+void save_abcd ()
+{
+    set_val (functions::push_reg + reg_compare[ax],                           // push rax
+             functions::push_reg + reg_compare[bx],                           // push rbx
+             functions::push_reg + reg_compare[cx],                           // push rcx
+             functions::push_reg + reg_compare[dx]);                          // push rdx
+}  
+
+void restore_abcd ()
+{
+    set_val (functions::pop_reg + reg_compare[dx],                            // pop rdx
+             functions::pop_reg + reg_compare[cx],                            // pop rcx  
+             functions::pop_reg + reg_compare[bx],                            // pop rbx
+             functions::pop_reg + reg_compare[ax]);                           // pop rax
+}
+
+void pass_in ()
+{
+    save_abcd ();
+    set_val (functions::mov_dig  + reg_compare[ax], (DWORD) 0x3,              // mov eax, 3
+             functions::mov_dig  + reg_compare[bx], (DWORD) 0x2,              // mov ebx, 2
+             functions::mov_dig  + reg_compare[cx], ELF_HEADER::memory_place, // mov ecx, virtual_memory
+             functions::mov_dig  + reg_compare[dx], (DWORD) 0x1,              // mov rdx, 1
+             functions::int80h);                                              // int 80h
+
+             restore_abcd ();
+
+    set_val (prefix::REX_W, functions::sub_mem, rm_byte::sib_follow_sm,       //sub [virtual_memory], 30
+             sib_byte::subq_my_sib, ELF_HEADER::memory_place, (BYTE) 0x30,
+
+             functions::push_mem, rm_byte::sib_follow_p,                      //push [virtual_memory]  
+             ELF_HEADER::memory_place);
+    
+}
+
+void pass_out ()
+{
+    save_abcd ();
+
+    set_val (functions::mov_dig  + reg_compare[ax], (DWORD) 0x4,              // mov eax, 4
+             functions::mov_dig  + reg_compare[bx], (DWORD) 0x1,              // mov ebx, 1
+             prefix::REX_B, functions::pop_reg + r13,                         // pop r13
+
+             prefix::REX_WR, functions::mov_reg, rm_byte::sib_follow_sm,      // mov [virtual_memory], r13
+             ELF_HEADER::memory_place,
+ 
+             functions::mov_dig  + reg_compare[cx], ELF_HEADER::memory_place, // mov ecx, virtual_memory
+             functions::mov_dig  + reg_compare[dx], (DWORD) 0x1,              // mov rdx, 1
+             functions::int80h);   
+
+}
+
+void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_bin_code)
+{
+    bool is_jump = true;
+    unsigned int rip = code_size - ELF_HEADER::entry;
+
+    switch (binary_code[i])
+    {
+        case JMP:
+        {
+            set_val (functions::jmp);
+            break;
+        }
+
+        default:
+        {
+            set_val (prefix::REX_B,   functions::pop_reg + r11,         // pop r11
+                     prefix::REX_B,   functions::pop_reg + r12,         // pop r12
+                     prefix::REX_WRB, functions::cmp, rm_byte::r12_r11);// cmp r12, r11
+            
+            switch (binary_code[i])
+            {
+
+                case JA:
+                {
+                    set_val (functions::ja);
+                }
+
+                default:
+                {
+                    std::cout << "ERROR";
+                }
+
+            }
+                                                
+        }
+    }
+
+    if (is_jump)
+        set_val ( (DWORD) (label_bin_code[*(int*)(&binary_code[i + 1])] - rip) );
+
+    i += sizeof (int);
+}
+
+
+
+
+
+
 
 
 

@@ -38,8 +38,10 @@ enum push
 
 enum registers
 {
-    ax = 0, bx = 1, cx = 2, dx = 3
+    ax = 0, bx = 1, cx = 2, dx = 3, r8 = 0, r9 = 1, r10 = 2, r11 =3, r12 = 4, r13 = 5, r14 = 6,
 };
+
+const int reg_compare[] = {0, 3, 1, 2};
 
 namespace mov
 {
@@ -49,38 +51,54 @@ namespace mov
     const BYTE mov_d = 0xBA;
 }
 
+namespace prefix
+{
+    const BYTE REX_B   = 0x41;  //REX prefix, watch intel manual
+    const BYTE REX_W   = 0x48;
+    const BYTE REX_WB  = 0x49;
+    const BYTE REX_WR  = 0x4C;
+    const BYTE REX_WRB = 0x4D;
+}
+
 namespace functions
 {
-    const WORD int80h = 0x80cd;
+    const WORD int80h   = 0x80cd;
 
-    const BYTE mul    = 0xF7;
-    const BYTE sub    = 0x29;
-    const BYTE cmp    = 0x39;
-    const BYTE jmp    = 0xEB;
-    const BYTE call    = 0xEB;
+    const BYTE mul      = 0xF7;
+    const BYTE sub      = 0x29;
+    const BYTE sub_mem  = 0x83;
+    const BYTE cmp      = 0x39;
+    const BYTE call     = 0xEB;
+    const BYTE mov_reg  = 0x89;
+    const BYTE mov_dig  = 0xB8;
+    const BYTE push_reg = 0x50;
+    const BYTE push_mem = 0xFF;
+    const BYTE pop_reg  = 0x58;
 
-    const BYTE push_a = 0x50;
-    const BYTE pop_a  = 0x58;
 
-    const BYTE push_b = 0x53;
-    const BYTE pop_b  = 0x5b;
-
-    const BYTE push_c = 0x51;
-    const BYTE pop_c  = 0x59;
-
-    const BYTE REX_B   = 0x41;  //REX prefix, watch intel manual
-    const BYTE REX_WB  = 0x49;
-    const BYTE REX_WRB = 0x4D;
-
-    const BYTE pop_r8  = 0x58;
-    const BYTE pop_r9  = 0x59;
-    const BYTE push_r9 = 0x51;
-    const BYTE pop_r10 = 0x5A;
-    const BYTE pop_r11 = 0x5B;
-    const BYTE pop_r12 = 0x5C;
 
 
     const BYTE push_byte = 0x6A;
+}
 
+namespace functions
+{
+    const BYTE jmp = 0xE9;
+    const BYTE ja  = 0x77;
+}
 
+namespace rm_byte
+{
+    const BYTE rax_r14       = 0xC6;
+    const BYTE r14_rax       = 0xF0;
+    const BYTE mul_r14       = 0xE2;
+    const BYTE r9_r8         = 0xC1;
+    const BYTE sib_follow_sm = 0x2C;
+    const BYTE sib_follow_p  = 0x34;
+    const BYTE r12_r11       = 0xDC;
+}
+
+namespace sib_byte
+{
+    const BYTE subq_my_sib  = 0x25;
 }

@@ -33,13 +33,13 @@ int Sizecount ( const char *fname );
  * @param[in] length length of file
  * @return dynamic buffer with text from file
  */
-char* Buf ( char* name, int length );
+unsigned char* Buf ( char* name, int length );
 
 /*! Makes a buffer
  * @param[in] name name of file
  * @return dynamic buffer with text from file
  */
-char* BufferMaker ( char* name);
+unsigned char* BufferMaker ( char* name);
 
 bool WordCmp ( const char* compare1, const char* compare2 )
 {
@@ -103,11 +103,11 @@ int Sizecount ( const char *fname )
     return sizeknowing.st_size;
 }
 
-char* Buf ( const char* name, int length )
+unsigned char* Buf ( const char* name, int length )
 {
     assert ( name );
     assert (length>0 );
-    char* buffer = ( char* )  calloc ( length + 1, sizeof (char) );
+    unsigned char* buffer = ( unsigned char* )  calloc ( length + 1, sizeof (unsigned char) );
 
 
     FILE *fp = fopen(name, "rb");
@@ -124,11 +124,11 @@ char* Buf ( const char* name, int length )
 }
 
 
-char* BufferMaker (const char* name)
+unsigned char* BufferMaker (const char* name)
 {
     int length = Sizecount ( name );
 
-    char* buffer = Buf ( name, length );
+    unsigned char* buffer = Buf ( name, length );
 
     return buffer;
 }

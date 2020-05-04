@@ -1,14 +1,17 @@
-
+#include <iostream>
 #include "stdio.h"
 #include <cstring>
-#include "parts.h"
+#include "map.h"
+#include "myLib.h"
+#include "parts_new.h"
+
 
 int main ()
 {
     code = new char[0x348];
 
 
-    Make_elf_header (0x40);
+    Make_elf_header (0xB0);
     Make_program_header (0xD2);
 
     auto a = new unsigned char[0x380];

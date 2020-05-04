@@ -2,7 +2,7 @@
 #include "stdio.h"
 #include <cstring>
 
-#define WINDOWS
+//#define WINDOWS
 #ifdef WINDOWS
 typedef unsigned long       QWORD;
 typedef unsigned int        DWORD;

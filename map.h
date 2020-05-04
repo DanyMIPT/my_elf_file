@@ -64,7 +64,7 @@ namespace functions
     const BYTE sub      = 0x29;
     const BYTE sub_mem  = 0x83;
     const BYTE cmp      = 0x39;
-    const BYTE call     = 0xEB;
+    const BYTE call     = 0xE8;
     const BYTE mov_reg  = 0x89;
     const BYTE mov_dig  = 0xB8;
     const BYTE push_reg = 0x50;
@@ -87,7 +87,7 @@ namespace rm_byte
 {
     const BYTE rax_r14       = 0xC6;
     const BYTE r14_rax       = 0xF0;
-    const BYTE mul_r14       = 0xE2;
+    const BYTE mul_r14       = 0xE6;
     const BYTE r9_r8         = 0xC1;
     const BYTE sib_follow_sm = 0x2C;
     const BYTE sib_follow_p  = 0x34;

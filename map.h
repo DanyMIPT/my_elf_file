@@ -1,9 +1,5 @@
 #include "my_vec.h"
 
-typedef unsigned long       QWORD;
-typedef unsigned int        DWORD;
-typedef unsigned char       BYTE;
-typedef unsigned short      WORD;
 
 enum commands
 {
@@ -15,8 +11,8 @@ enum commands
     MUL     = 0X05,
     DIV     = 0X06,
     SQRT    = 0X07,
-    IN      = 0X08,
-    OUT     = 0X09,
+    IN_      = 0X08,
+    OUT_     = 0X09,
     JMP     = 0X0A,
     JA      = 0X0B,
     JAE     = 0X0C,
@@ -41,7 +37,7 @@ enum registers
     ax = 0, bx = 1, cx = 2, dx = 3, r8 = 0, r9 = 1, r10 = 2, r11 =3, r12 = 4, r13 = 5, r14 = 6,
 };
 
-const int reg_compare[] = {0, 3, 1, 2};
+const BYTE reg_compare[] = {0, 3, 1, 2};
 
 namespace mov
 {
@@ -76,12 +72,12 @@ namespace functions
     const BYTE pop_reg  = 0x58;
 
 
-
+    const BYTE ret      = 0xC3;
 
     const BYTE push_byte = 0x6A;
 }
 
-namespace functions
+namespace jumps
 {
     const BYTE jmp = 0xE9;
     const BYTE ja  = 0x77;

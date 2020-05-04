@@ -1,7 +1,4 @@
-typedef unsigned long        QWORD;
-typedef unsigned int        DWORD;
-typedef unsigned char       BYTE;
-typedef unsigned short      WORD;
+
 
 char*  code      = nullptr;
 size_t code_size = 0;
@@ -14,7 +11,10 @@ void pass_in      ();
 void pass_out     ();
 void restore_abcd ();
 void save_abcd    ();
-void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_bin_code);
+void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
+void pass_call    (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
+void pass_ret     ();
+void pass_end     ();
 
 namespace ELF_HEADER
 {
@@ -185,30 +185,26 @@ void Make_section_header (const QWORD& adress1, const QWORD& size1, const QWORD&
 
 }
 
-void Make_executable_code ()
+void Make_executable_code (unsigned char* binary_code, size_t file_size, int* label_binary_code)
 {
 
-    unsigned char* bin_code = BufferMaker ("binaryCode.bin");
-    size_t file_size = Sizecount ("binaryCode.bin");
-    int* label_bin_code = (int*) calloc (file_size + 1, sizeof (int));
-
-    int j = code_size;
+    size_t j = code_size;
 
     for (size_t i = 8; i < file_size; i++) // skip signature
     {
-        label_bin_code[i] = code_size;
+        label_binary_code[i] = code_size;
         
-        switch (bin_code[i])
+        switch (binary_code[i])
         {
             case PUSH:
             {
-                pass_push (bin_code, i);
+                pass_push (binary_code, i);
                 break;
             }
 
             case POP:
             {
-                pass_pop (bin_code, i);
+                pass_pop (binary_code, i);
                 break;
             }
 
@@ -224,13 +220,13 @@ void Make_executable_code ()
                 break;
             }
 
-            case IN:
+            case IN_:
             {
                 pass_in ();
                 break;
             }
 
-            case OUT:
+            case OUT_:
             {
                 pass_out ();
                 break;
@@ -245,9 +241,30 @@ void Make_executable_code ()
 
             case JMP:
             {
-                pass_jumps (bin_code, i, label_bin_code);
+                pass_jumps (binary_code, i, label_binary_code);
                 break;
             }
+
+            case CALL:
+            {
+                pass_call (binary_code, i, label_binary_code);
+                break;
+            }
+
+            case RET:
+            {
+                pass_ret ();
+                break;
+            }
+
+            case END:
+            {
+                pass_end ();
+                break;
+            }
+
+            default:
+                std::cout << "ERROR";
 
 
         }
@@ -258,8 +275,8 @@ void Make_executable_code ()
         fprintf (deb, "%c", code[j]);
     fclose (deb); 
 
-    free (bin_code);
-    free (label_bin_code);
+    free (binary_code);
+    free (label_binary_code);
 }
 
 void pass_push (const unsigned char* binary_code, size_t& i)
@@ -268,9 +285,9 @@ void pass_push (const unsigned char* binary_code, size_t& i)
     {
         case INT_:
         {
-            code[code_size++] = functions::push_byte;
-            code[code_size++] = *(int*)(&binary_code[i + 1]);
-            i += sizeof (int);
+            set_val (functions::push_byte);
+            set_val ( (BYTE) *(int*)(&binary_code[i + 2]));
+            i += sizeof (char) + sizeof (int);
             break;
         }
     
@@ -296,7 +313,7 @@ void pass_pop (const unsigned char* binary_code, size_t& i)
     
         case REG:
         {
-            code[code_size++] = functions::pop_reg + reg_compare[binary_code[i + 2]];
+            set_val ( (BYTE) (functions::pop_reg + reg_compare[binary_code[i + 2]]));
             i += 2 * sizeof (char);
             break;
         }
@@ -313,46 +330,48 @@ void pass_pop (const unsigned char* binary_code, size_t& i)
 
 void pass_mul ()
 {
+    save_abcd ();
     set_val (prefix::REX_WB, functions::mov_reg, rm_byte::r14_rax,     // mov rax, r14
-             functions::pop_reg + reg_compare[ax],                  // pop rax
-             prefix::REX_B, functions::pop_reg + r10,               // pop r10
-             prefix::REX_WB, functions::mul, rm_byte::mul_r14,      // mul r14
-             functions::push_reg + reg_compare[ax],                 // push rax
-             prefix::REX_WR, functions::mov_reg, rm_byte::rax_r14);     // mov r14, rax             
+             (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
+             prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
+             prefix::REX_WB, functions::mul, rm_byte::mul_r14,         // mul r14
+             (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
+             prefix::REX_WR, functions::mov_reg, rm_byte::rax_r14);    // mov r14, rax
+    restore_abcd ();
 }
 
 void pass_sub ()
 {
-    set_val (prefix::REX_B,   functions::pop_reg + r8,              // pop r8
-             prefix::REX_B,   functions::pop_reg + r9,              // pop r9
-             prefix::REX_WRB, functions::sub, rm_byte::r9_r8,       // sub r9, r8
-             prefix::REX_B,   functions::push_reg + r9);            // push r9    
+    set_val (prefix::REX_B,   (BYTE) (functions::pop_reg + r8),              // pop r8
+             prefix::REX_B,   (BYTE) (functions::pop_reg + r9),              // pop r9
+             prefix::REX_WRB, functions::sub, rm_byte::r9_r8,                // sub r9, r8
+             prefix::REX_B,   (BYTE) (functions::push_reg + r9));            // push r9
 } 
 
 void save_abcd ()
 {
-    set_val (functions::push_reg + reg_compare[ax],                           // push rax
-             functions::push_reg + reg_compare[bx],                           // push rbx
-             functions::push_reg + reg_compare[cx],                           // push rcx
-             functions::push_reg + reg_compare[dx]);                          // push rdx
+    set_val ( (BYTE) (functions::push_reg + reg_compare[ax]),                           // push rax
+              (BYTE) (functions::push_reg + reg_compare[bx]),                           // push rbx
+              (BYTE) (functions::push_reg + reg_compare[cx]),                           // push rcx
+              (BYTE) (functions::push_reg + reg_compare[dx]));                          // push rdx
 }  
 
 void restore_abcd ()
 {
-    set_val (functions::pop_reg + reg_compare[dx],                            // pop rdx
-             functions::pop_reg + reg_compare[cx],                            // pop rcx  
-             functions::pop_reg + reg_compare[bx],                            // pop rbx
-             functions::pop_reg + reg_compare[ax]);                           // pop rax
+    set_val ( (BYTE) (functions::pop_reg + reg_compare[dx]),                            // pop rdx
+              (BYTE) (functions::pop_reg + reg_compare[cx]),                            // pop rcx
+              (BYTE) (functions::pop_reg + reg_compare[bx]),                            // pop rbx
+              (BYTE) (functions::pop_reg + reg_compare[ax]));                           // pop rax
 }
 
 void pass_in ()
 {
     save_abcd ();
-    set_val (functions::mov_dig  + reg_compare[ax], (DWORD) 0x3,              // mov eax, 3
-             functions::mov_dig  + reg_compare[bx], (DWORD) 0x2,              // mov ebx, 2
-             functions::mov_dig  + reg_compare[cx], ELF_HEADER::memory_place, // mov ecx, virtual_memory
-             functions::mov_dig  + reg_compare[dx], (DWORD) 0x1,              // mov rdx, 1
-             functions::int80h);                                              // int 80h
+    set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x3,              // mov eax, 3
+              (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x2,              // mov ebx, 2
+              (BYTE) (functions::mov_dig  + reg_compare[cx]), ELF_HEADER::memory_place, // mov ecx, virtual_memory
+              (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,              // mov rdx, 1
+              functions::int80h);                                              // int 80h
 
              restore_abcd ();
 
@@ -368,44 +387,44 @@ void pass_out ()
 {
     save_abcd ();
 
-    set_val (functions::mov_dig  + reg_compare[ax], (DWORD) 0x4,              // mov eax, 4
-             functions::mov_dig  + reg_compare[bx], (DWORD) 0x1,              // mov ebx, 1
-             prefix::REX_B, functions::pop_reg + r13,                         // pop r13
+    set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,              // mov eax, 4
+              (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x1,              // mov ebx, 1
+              prefix::REX_B, (BYTE) (functions::pop_reg + r13),                         // pop r13
 
-             prefix::REX_WR, functions::mov_reg, rm_byte::sib_follow_sm,      // mov [virtual_memory], r13
-             ELF_HEADER::memory_place,
- 
-             functions::mov_dig  + reg_compare[cx], ELF_HEADER::memory_place, // mov ecx, virtual_memory
-             functions::mov_dig  + reg_compare[dx], (DWORD) 0x1,              // mov rdx, 1
-             functions::int80h);   
+              prefix::REX_WR, functions::mov_reg, rm_byte::sib_follow_sm,               // mov [virtual_memory], r13
+              ELF_HEADER::memory_place,
+
+              (BYTE) (functions::mov_dig  + reg_compare[cx]), ELF_HEADER::memory_place, // mov ecx, virtual_memory
+              (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,              // mov rdx, 1
+              functions::int80h);
 
 }
 
-void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_bin_code)
+void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_binary_code)
 {
-    bool is_jump = true;
-    unsigned int rip = code_size - ELF_HEADER::entry;
+    unsigned int rip = code_size + 1 - ELF_HEADER::entry;
 
     switch (binary_code[i])
     {
         case JMP:
         {
-            set_val (functions::jmp);
+            set_val (jumps::jmp);
             break;
         }
 
         default:
         {
-            set_val (prefix::REX_B,   functions::pop_reg + r11,         // pop r11
-                     prefix::REX_B,   functions::pop_reg + r12,         // pop r12
-                     prefix::REX_WRB, functions::cmp, rm_byte::r12_r11);// cmp r12, r11
+            set_val (prefix::REX_B,   (BYTE) (functions::pop_reg + r11),         // pop r11
+                     prefix::REX_B,   (BYTE) (functions::pop_reg + r12),         // pop r12
+                     prefix::REX_WRB, functions::cmp, rm_byte::r12_r11);         // cmp r12, r11
             
             switch (binary_code[i])
             {
 
                 case JA:
                 {
-                    set_val (functions::ja);
+                    set_val (jumps::ja);
+                    break;
                 }
 
                 default:
@@ -418,10 +437,32 @@ void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label
         }
     }
 
-    if (is_jump)
-        set_val ( (DWORD) (label_bin_code[*(int*)(&binary_code[i + 1])] - rip) );
-
+    std::cout << "*(int*)(&binary_code[i + 1] + 8) = " << *(int*)(&binary_code[i + 1]) + 8 << "\n" <<
+              "label_binary_code[*(int*)(&binary_code[i + 1]) = 8] = " << label_binary_code[*(int*)(&binary_code[i + 1]) + 8] << "\n" <<
+              "code_size" << code_size << "\n";
+    set_val ( (DWORD) (label_binary_code[*(int*)(&binary_code[i + 1]) + 8]) - code_size - sizeof (int));
+    //std::cout << *(int*)(&binary_code[i + 1]) + 8 << std::endl;
     i += sizeof (int);
+}
+
+void pass_call (const unsigned char* binary_code, size_t& i, const int* label_binary_code)
+{
+    unsigned int rip = code_size + 1 - ELF_HEADER::entry;
+    set_val (functions::call, (DWORD) (label_binary_code[*(int*)(&binary_code[i + 1])] - rip));
+
+    i += sizeof (int) + 3 * sizeof (char);
+}
+
+void pass_ret ()
+{
+    set_val (functions::ret);
+}
+
+void pass_end ()
+{
+    set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x1,              // mov eax, 3
+              (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x0,              // mov ebx, 2
+              functions::int80h);
 }
 
 

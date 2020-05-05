@@ -33,14 +33,14 @@ int main ()
     Make_elf_header (0xB0);
     Make_program_header (0x00);
 
-    Make_section_header (0x138, 0x00, 0x130, 0x8);
+    Make_section_header (0x148, 0x00, 0x130, 0x18);
 
 
     unsigned char* binary_code = BufferMaker ("binaryCode.bin");
     size_t file_size = Sizecount ("binaryCode.bin");
     int* label_binary_code = (int*) calloc (file_size + 8, sizeof (int));
 
-    for (int i = 0; i < 8; i++)
+    for (int i = 0; i < 0x18; i++)
         code[code_size++] = 0x0;
 
     std::cout << code_size;

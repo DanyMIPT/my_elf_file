@@ -84,6 +84,7 @@ namespace jumps
 {
     const BYTE jmp = 0xE9;
     const BYTE ja  = 0x87;
+    const BYTE je  = 0x84;
 }
 
 namespace rm_byte

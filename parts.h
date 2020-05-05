@@ -30,7 +30,7 @@ namespace ELF_HEADER
     constexpr DWORD version                = 0x1;          //version
 
     constexpr DWORD virtual_memory_start   = 0x400000;     //entry_point
-    constexpr DWORD entry                  = 0x138; 
+    constexpr DWORD entry                  = 0x148; 
     constexpr DWORD _0                     = 0x0;          //...
 
     constexpr DWORD program_header_offset  = 0x40;
@@ -46,6 +46,7 @@ namespace ELF_HEADER
     constexpr WORD index_of_shstrtab       = 0x5;
 
     const QWORD memory_place = 0x600130; 
+    const QWORD memory_digit = 0x600138; 
 }
 
 namespace PROGRAM_HEADER_CONST
@@ -53,7 +54,7 @@ namespace PROGRAM_HEADER_CONST
     constexpr DWORD head_type         = 0x1;                //Loadable segment
     constexpr DWORD RE                = 0x5;                //Read and execute
     constexpr DWORD RW                = 0x6;                //Read and write
-    constexpr QWORD size_address2     = 0x4;
+    constexpr QWORD size_address2     = 0x18;
     constexpr QWORD align             = 0x200000;
 }
 
@@ -83,7 +84,7 @@ namespace SECTION_HEADER_CONST
     constexpr QWORD alloc_and_execute = 0x6;
     constexpr QWORD alloc_and_write   = 0x3;
 
-    constexpr QWORD text_offset       = 0x138;
+    constexpr QWORD text_offset       = 0x148;
     constexpr QWORD memory_offset     = 0x600000;
 
 
@@ -430,6 +431,12 @@ void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_b
                 case JA:
                 {
                     set_val (prefix::short_, jumps::ja);
+                    break;
+                }
+
+                case JE:
+                {
+                    set_val (prefix::short_, jumps::je);
                     break;
                 }
 

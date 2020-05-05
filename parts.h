@@ -3,18 +3,24 @@
 char*  code      = nullptr;
 size_t code_size = 0;
 
-void pass_push    (const unsigned char* binary_code, size_t& i);
-void pass_pop     (const unsigned char* binary_code, size_t& i);
-void pass_mul     ();
-void pass_sub     ();
-void pass_in      ();
-void pass_out     ();
-void restore_abcd ();
-void save_abcd    ();
-void pass_jumps   (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
-void pass_call    (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
-void pass_ret     ();
-void pass_end     ();
+const size_t max_size             = 0x100000;
+const size_t section_header_begin = 0xB0;
+
+void pass_push     (const unsigned char* binary_code, size_t& i);
+void pass_pop      (const unsigned char* binary_code, size_t& i);
+void pass_mul      ();
+void pass_sub      ();
+void pass_in       ();
+void pass_out      ();
+void restore_abcd  ();
+void save_abcd     ();
+void pass_jumps    (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
+void pass_call     (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
+void pass_ret      ();
+void pass_end      ();
+void make_data     ();  
+void set_text_size (const size_t& size);
+void make_align    (const size_t& align);
 
 namespace ELF_HEADER
 {
@@ -86,8 +92,8 @@ namespace SECTION_HEADER_CONST
 
     constexpr QWORD text_offset       = 0x148;
     constexpr QWORD memory_offset     = 0x600000;
-
-
+    const     DWORD mem_size          = 0x18;
+    const     BYTE  text_align        = 0x10;
 }
 
 struct SECTION_HEADER
@@ -161,27 +167,28 @@ void Make_elf_header (const DWORD& section_header_offset)
 
     set_val (signature,               elf_class, endian_type, format_version,  (QWORD) 0x0, file_type,
              machine_type,            version,   virtual_memory_start + entry, (DWORD) 0x0, program_header_offset,
-             (DWORD) 0x0,             section_header_offset,  (QWORD) 0x0,     elf_header_size, size_of_program_header, 
-             number_of_prog_entr, section_header_size, section_header_num_entr, index_of_shstrtab);
+             (DWORD) 0x0,             section_header_offset,  (QWORD) 0x0,     elf_header_size,             
+             size_of_program_header, number_of_prog_entr, section_header_size, section_header_num_entr,         
+             index_of_shstrtab);
 }
 
-void Make_program_header (const QWORD& size_address1) //size_of_excutable_code
+void Make_program_header () //size_of_excutable_code
 {
     using namespace PROGRAM_HEADER_CONST;
 
     PROGRAM_HEADER elf_program_headers[2] = {
-            PROGRAM_HEADER (RE, 0x0,   ELF_HEADER::virtual_memory_start,   size_address1),
+            PROGRAM_HEADER (RE, 0x0,   ELF_HEADER::virtual_memory_start,    0X0),
             PROGRAM_HEADER (RW, 0x0,   SECTION_HEADER_CONST::memory_offset, size_address2) };
 }
 
 
-void Make_section_header (const QWORD& adress1, const QWORD& size1, const QWORD& adress2, const QWORD& size2)
+void Make_section_header (const QWORD& size1, const QWORD& size2)
 {
     using namespace SECTION_HEADER_CONST;
 
     SECTION_HEADER elf_section_headers[2] = {
-            SECTION_HEADER (alloc_and_execute, 0x400000 + text_offset, text_offset,   size1, 0x10),
-            SECTION_HEADER (alloc_and_write,   0x0,                    memory_offset, size2, 0x4) };
+            SECTION_HEADER (alloc_and_execute, 0x400000 + text_offset, text_offset,   0x0,      0x10),
+            SECTION_HEADER (alloc_and_write,   0x0,                    memory_offset, mem_size, 0x4) };
 
 }
 
@@ -271,11 +278,6 @@ void Make_executable_code (unsigned char* binary_code, size_t file_size, int* la
     }
 
     pass_end ();
-
-    FILE* deb = fopen ("debug", "wb");
-    for (;j < code_size; j++)
-        fprintf (deb, "%c", code[j]);
-    fclose (deb); 
 
     free (binary_code);
     free (label_binary_code);
@@ -408,13 +410,13 @@ void pass_in ()
               prefix::REX_WB, functions::mov_dig_rm, rm_byte::dig_r9, (DWORD)0xFFFFFFFF,// mov r9, -1
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
                                                                                         // skip_mul
-              prefix::REX_WB, (BYTE) (functions::mov_reg + reg_compare[ax]),           // mov r9, rax
+              prefix::REX_WB, (BYTE) (functions::mov_reg + reg_compare[ax]),            // mov r9, rax
               rm_byte::rax_r9);
             
 
     restore_abcd ();
 
-    set_val (prefix::REX_B, (BYTE) (functions::push_reg + r9));                         // push r9
+    set_val (prefix::REX_B, (BYTE) (functions::push_reg + r9));                          // push r9
 
     
 }
@@ -424,17 +426,31 @@ void pass_out ()
     set_val (prefix::REX_B, (BYTE) (functions::pop_reg + r13));                         // pop r13
     save_abcd ();
 
-    set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,              // mov eax, 4
-              (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x1,              // mov ebx, 1
+    set_val (prefix::REX_WR, (BYTE) (functions::mov_reg  + reg_compare[ax]),            // mov rax, r13 
+             rm_byte::r13_rax,
 
-              prefix::REX_WR, functions::mov_reg, rm_byte::sib_follow_sm,               // mov [virtual_memory], r13
-              sib_byte::subq_my_sib, (DWORD) ELF_HEADER::memory_place,
+             prefix::REX_W, functions::mov_mem_plus_digit, 
+             (QWORD) (ELF_HEADER::memory_place + PROGRAM_HEADER_CONST::size_address2),  // mov rsi, value + 15h
+    
+    
+             prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 0xA,              //mov r9, 0xa
+             prefix::REX_W, functions::xor_reg, rm_byte::rcx_rcx,                       // xor rcx, rcx
+                                                                                        // loop2
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
+             prefix::REX_W, functions::inc, rm_byte::inc_rcx,                           // inc rcx         
+             prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                       // div r9
+             functions::mov_mem_from_al, rm_byte::dl_rsi,                               // mov byte [rsi], dl 
+             prefix::pref_80, functions::add_rsi, (BYTE) 0x30,                          // add byte [rsi], 48       
+             prefix::REX_W, functions::inc, rm_byte::dec_rsi,                           // dec rsi
+             prefix::REX_W, functions::cmp_r_digit, rm_byte::rax_digit, (BYTE) 0x0,     // cmp rax, 0 
+             jumps::jne_one_byte, fun_distances::loop2,                                 // jne loop2
+             (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,               // mov eax, 4
+             (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x1,               // mov ebx, 1
+             prefix::REX_W, functions::mov_reg, rm_byte::rcx_rdx,                       // mov rdx, rcx 
+             prefix::REX_W, functions::mov_reg, rm_byte::rsi_rcx,                       // mov rcx, rsi
+             prefix::REX_W, functions::inc, rm_byte::inc_rcx,                           // inc rcx                    
+             functions::int80h);
 
-              (BYTE) (functions::mov_dig  + reg_compare[cx]), 
-              (DWORD) ELF_HEADER::memory_place,                                         // mov ecx, virtual_memory
-
-              (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,              // mov rdx, 1
-              functions::int80h);
     restore_abcd ();
 
 }
@@ -503,6 +519,23 @@ void pass_end ()
     set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x1,              // mov eax, 3
               (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x0,              // mov ebx, 2
               functions::int80h);
+}
+
+void make_data ()
+{
+    set_zero_byte (SECTION_HEADER_CONST::mem_size);
+}
+
+void set_text_size (const size_t& size)
+{
+    *(QWORD*) &code[0xd0] = size;
+    *(QWORD*) &code[0x60] = size;
+    *(QWORD*) &code[0x68] = size;
+}
+
+void make_align (const size_t& align)
+{
+    set_zero_byte (align);
 }
 
 

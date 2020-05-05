@@ -1,5 +1,8 @@
 #include "my_vec.h"
-
+typedef unsigned long       QWORD;
+typedef unsigned int        DWORD;
+typedef unsigned char       BYTE;
+typedef unsigned short      WORD;
 
 enum commands
 {
@@ -81,11 +84,14 @@ namespace functions
     const BYTE cmp_al       = 0x3C;
     const BYTE inc          = 0xFF;
     const BYTE add_al       = 0x02;
-
-
     const BYTE ret          = 0xC3;
-
     const BYTE push_byte    = 0x6A;
+    const BYTE add_rsi      = 0x06;
+    const BYTE cmp_r_digit  = 0x83;
+
+
+    const BYTE mov_mem_from_al    = 0x88;
+    const BYTE mov_mem_plus_digit = 0xBE;
 }
 
 namespace jumps
@@ -101,6 +107,7 @@ namespace fun_distances
     const BYTE not_minus    = 0x04;
     const BYTE skip_mul     = 0x0A;
     const BYTE repeat       = 0xE1;
+    const BYTE loop2        = 0xE9;
 }
 
 namespace rm_byte
@@ -111,6 +118,7 @@ namespace rm_byte
     const BYTE div_r9        = 0xF1;
     const BYTE mul_r10       = 0xE2;
     const BYTE r9_r8         = 0xC1;
+    const BYTE inc_rcx       = 0xC1;
     const BYTE dig_r9        = 0xC1;
     const BYTE rax_r9        = 0xC1;
     const BYTE sib_follow_sm = 0x2C;
@@ -122,6 +130,15 @@ namespace rm_byte
     const BYTE dig_r10       = 0xC2;
     const BYTE mem_plus_r10  = 0x82;   
     const BYTE cmp_mem_rm    = 0xBA;
+    const BYTE r13_rax       = 0xe8;
+    const BYTE rcx_rcx       = 0xC9;
+    const BYTE rdx_rdx       = 0xD2;
+    const BYTE dl_rsi        = 0x16;
+    const BYTE dec_rsi       = 0xCE;
+    const BYTE rax_digit     = 0xF8;   
+    const BYTE rcx_rdx       = 0xCA;
+    const BYTE rsi_rcx       = 0xF1;
+
 }
 
 namespace sib_byte

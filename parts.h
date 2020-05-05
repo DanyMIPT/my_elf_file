@@ -335,7 +335,7 @@ void pass_mul ()
     set_val (prefix::REX_WB, functions::mov_reg, rm_byte::rax_r14,     // mov r14, rax
              (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
              prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
-             prefix::REX_WB, functions::mul, rm_byte::mul_r10,         // mul r10
+             prefix::REX_WB, functions::mul_div, rm_byte::mul_r10,     // mul r10
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
 }
@@ -364,26 +364,57 @@ void restore_abcd ()
               (BYTE) (functions::pop_reg + reg_compare[ax]));                           // pop rax
 }
 
+const BYTE minus = 0x2D;
+
 void pass_in ()
 {
     save_abcd ();
+
     set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x3,              // mov eax, 3
               (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x2,              // mov ebx, 2
 
               (BYTE) (functions::mov_dig  + reg_compare[cx]), 
                       (DWORD) ELF_HEADER::memory_place,                                 // mov ecx, virtual_memory
 
-              (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,              // mov rdx, 1
-              functions::int80h);                                                       // int 80h
+              (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x8,              // mov rdx, 1
+              functions::int80h,                                                        // int 80h
+              prefix::REX_W,   functions::xor_reg, rm_byte::rax_rax,                    // xor rax, rax
+              prefix::REX_WRB, functions::xor_reg, rm_byte::r10_r10,                    // xor r10, r10
+
+              prefix::pref_80, functions::cmp_al, rm_byte::rip_plus,                    // cmp byte [value], '-'
+              (DWORD) ELF_HEADER::memory_place, minus,
+
+              jumps::jne_one_byte, fun_distances::not_minus,                            // jne loop
+              prefix::REX_WB, functions::add_r, rm_byte::dig_r10, (BYTE) 0x1,           // add r10, 1   
+                                                                                        // loop:
+              prefix::REX_B, functions::add_al, rm_byte::mem_plus_r10,                  // add al, [value + r10]
+              (DWORD) ELF_HEADER::memory_place, 
+
+              functions::sub_al, (BYTE) 0x30,                                           // sub al, 30h
+              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 0xA,             // mov r9, 10
+              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
+              prefix::REX_WB, functions::inc, rm_byte::dig_r10,                         // inc r10
+
+              prefix::REX_B,  functions::cmp_mem, rm_byte::cmp_mem_rm,                  // cmp byte [value + r10], 0ah
+              (DWORD) ELF_HEADER::memory_place, (BYTE) 0xA, 
+
+              jumps::jne_one_byte, fun_distances::repeat,                               // jne loop
+              prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                       // div r9
+
+              prefix::pref_80, functions::cmp_al, rm_byte::rip_plus,                    // cmp byte [value], '-'
+              (DWORD) ELF_HEADER::memory_place, minus,
+
+              jumps::jne_one_byte, fun_distances::skip_mul,                             // jne skip_mul
+              prefix::REX_WB, functions::mov_dig_rm, rm_byte::dig_r9, (DWORD)0xFFFFFFFF,// mov r9, -1
+              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
+                                                                                        // skip_mul
+              prefix::REX_WB, (BYTE) (functions::mov_reg + reg_compare[ax]),           // mov r9, rax
+              rm_byte::rax_r9);
+            
 
     restore_abcd ();
 
-    set_val (prefix::word, functions::sub_mem, rm_byte::sib_follow_sm,                  //sub [virtual_memory], 30
-             sib_byte::subq_my_sib, (DWORD) ELF_HEADER::memory_place, (BYTE) 0x30,
-
-             functions::push_mem, rm_byte::sib_follow_p, 
-             sib_byte::subq_my_sib,         //push [virtual_memory]  
-             (DWORD) ELF_HEADER::memory_place);
+    set_val (prefix::REX_B, (BYTE) (functions::push_reg + r9));                         // push r9
 
     
 }

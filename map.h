@@ -49,53 +49,79 @@ namespace mov
 
 namespace prefix
 {
-    const BYTE REX_B   = 0x41;  //REX prefix, watch intel manual
-    const BYTE REX_W   = 0x48;
-    const BYTE REX_WB  = 0x49;
-    const BYTE REX_WR  = 0x4C;
-    const BYTE REX_WRB = 0x4D;
+    const BYTE REX_B    = 0x41;  //REX prefix, watch intel manual
+    const BYTE REX_W    = 0x48;
+    const BYTE REX_WB   = 0x49;
+    const BYTE REX_WR   = 0x4C;
+    const BYTE REX_WRB  = 0x4D;
 
-    const BYTE short_  = 0x0F;
-    const BYTE word    = 0x66;
+    const BYTE short_   = 0x0F;
+    const BYTE word     = 0x66;
+    const BYTE pref_80  = 0x80; 
 }
 
 namespace functions
 {
-    const WORD int80h   = 0x80cd;
+    const WORD int80h       = 0x80cd;
 
-    const BYTE mul      = 0xF7;
-    const BYTE sub      = 0x29;
-    const BYTE sub_mem  = 0x80;
-    const BYTE cmp      = 0x39;
-    const BYTE call     = 0xE8;
-    const BYTE mov_reg  = 0x89;
-    const BYTE mov_dig  = 0xB8;
-    const BYTE push_reg = 0x50;
-    const BYTE push_mem = 0xFF;
-    const BYTE pop_reg  = 0x58;
+    const BYTE mul_div      = 0xF7;
+    const BYTE sub          = 0x29;
+    const BYTE cmp_mem      = 0x80;
+    const BYTE cmp          = 0x39;
+    const BYTE call         = 0xE8;
+    const BYTE mov_reg      = 0x89;
+    const BYTE mov_dig      = 0xB8;
+    const BYTE mov_dig_rm   = 0xC7;
+    const BYTE add_r        = 0x83;
+    const BYTE sub_al       = 0x2C;
+    const BYTE xor_reg      = 0x31;
+    const BYTE push_reg     = 0x50;
+    const BYTE push_mem     = 0xFF;
+    const BYTE pop_reg      = 0x58;
+    const BYTE cmp_al       = 0x3C;
+    const BYTE inc          = 0xFF;
+    const BYTE add_al       = 0x02;
 
 
-    const BYTE ret      = 0xC3;
+    const BYTE ret          = 0xC3;
 
-    const BYTE push_byte = 0x6A;
+    const BYTE push_byte    = 0x6A;
 }
 
 namespace jumps
 {
-    const BYTE jmp = 0xE9;
-    const BYTE ja  = 0x87;
-    const BYTE je  = 0x84;
+    const BYTE jmp          = 0xE9;
+    const BYTE ja           = 0x87;
+    const BYTE je           = 0x84;
+    const BYTE jne_one_byte = 0x75;
+}
+
+namespace fun_distances
+{
+    const BYTE not_minus    = 0x04;
+    const BYTE skip_mul     = 0x0A;
+    const BYTE repeat       = 0xE1;
 }
 
 namespace rm_byte
 {
     const BYTE rax_r14       = 0xC6;
     const BYTE r14_rax       = 0xF0;
+    const BYTE mul_r9        = 0xE1;
+    const BYTE div_r9        = 0xF1;
     const BYTE mul_r10       = 0xE2;
     const BYTE r9_r8         = 0xC1;
+    const BYTE dig_r9        = 0xC1;
+    const BYTE rax_r9        = 0xC1;
     const BYTE sib_follow_sm = 0x2C;
     const BYTE sib_follow_p  = 0x34;
     const BYTE r12_r11       = 0xDC;
+    const BYTE rax_rax       = 0xC0;
+    const BYTE r10_r10       = 0xD2;
+    const BYTE rip_plus      = 0x25;
+    const BYTE dig_r10       = 0xC2;
+    const BYTE mem_plus_r10  = 0x82;   
+    const BYTE cmp_mem_rm    = 0xBA;
 }
 
 namespace sib_byte

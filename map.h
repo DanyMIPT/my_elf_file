@@ -138,6 +138,7 @@ namespace rm_byte
     const BYTE rax_digit     = 0xF8;   
     const BYTE rcx_rdx       = 0xCA;
     const BYTE rsi_rcx       = 0xF1;
+    const BYTE mul_r13       = 0xFD;
 
 }
 

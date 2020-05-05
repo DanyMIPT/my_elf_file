@@ -290,7 +290,7 @@ void pass_push (const unsigned char* binary_code, size_t& i)
         case INT_:
         {
             set_val (functions::push_byte);
-            set_val ( (BYTE) *(int*)(&binary_code[i + 2]));
+            set_val ( (BYTE) (*(int*)(&binary_code[i + 2]) * 100) );
             i += sizeof (char) + sizeof (int);
             break;
         }
@@ -338,6 +338,13 @@ void pass_mul ()
              (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
              prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r10,     // imul r10
+
+//поддержка  точности
+             prefix::REX_B, (BYTE) (functions::mov_dig + r13),         // mov r13, 100
+             (DWORD) 100,
+             prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,     // idiv r13
+//  
+             
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
 }
@@ -409,7 +416,12 @@ void pass_in ()
               jumps::jne_one_byte, fun_distances::skip_mul,                             // jne skip_mul
               prefix::REX_WB, functions::mov_dig_rm, rm_byte::dig_r9, (DWORD)0xFFFFFFFF,// mov r9, -1
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
-                                                                                        // skip_mul
+                                                                                        // skip_mul:
+//поддержка точности
+              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,            // mov r9, 100
+              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // imul r9
+//
+
               prefix::REX_WB, (BYTE) (functions::mov_reg + reg_compare[ax]),            // mov r9, rax
               rm_byte::rax_r9);
             
@@ -428,6 +440,12 @@ void pass_out ()
 
     set_val (prefix::REX_WR, (BYTE) (functions::mov_reg  + reg_compare[ax]),            // mov rax, r13 
              rm_byte::r13_rax,
+
+//поддержка  точности
+             prefix::REX_B, (BYTE) (functions::mov_dig + r13),                          // mov r13, 100
+             (DWORD) 100,
+             prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,                      // idiv r13
+//  
 
              prefix::REX_W, functions::mov_mem_plus_digit, 
              (QWORD) (ELF_HEADER::memory_place + PROGRAM_HEADER_CONST::size_address2),  // mov rsi, value + 15h

@@ -114,9 +114,9 @@ namespace rm_byte
 {
     const BYTE rax_r14       = 0xC6;
     const BYTE r14_rax       = 0xF0;
-    const BYTE mul_r9        = 0xE1;
-    const BYTE div_r9        = 0xF1;
-    const BYTE mul_r10       = 0xE2;
+    const BYTE mul_r9        = 0xE9;
+    const BYTE div_r9        = 0xF9;
+    const BYTE mul_r10       = 0xEA;
     const BYTE r9_r8         = 0xC1;
     const BYTE inc_rcx       = 0xC1;
     const BYTE dig_r9        = 0xC1;

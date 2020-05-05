@@ -337,7 +337,7 @@ void pass_mul ()
     set_val (prefix::REX_WB, functions::mov_reg, rm_byte::rax_r14,     // mov r14, rax
              (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
              prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
-             prefix::REX_WB, functions::mul_div, rm_byte::mul_r10,     // mul r10
+             prefix::REX_WB, functions::mul_div, rm_byte::mul_r10,     // imul r10
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
 }
@@ -394,14 +394,14 @@ void pass_in ()
 
               functions::sub_al, (BYTE) 0x30,                                           // sub al, 30h
               prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 0xA,             // mov r9, 10
-              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
+              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // imul r9
               prefix::REX_WB, functions::inc, rm_byte::dig_r10,                         // inc r10
 
               prefix::REX_B,  functions::cmp_mem, rm_byte::cmp_mem_rm,                  // cmp byte [value + r10], 0ah
               (DWORD) ELF_HEADER::memory_place, (BYTE) 0xA, 
 
               jumps::jne_one_byte, fun_distances::repeat,                               // jne loop
-              prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                       // div r9
+              prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                      // idiv r9
 
               prefix::pref_80, functions::cmp_al, rm_byte::rip_plus,                    // cmp byte [value], '-'
               (DWORD) ELF_HEADER::memory_place, minus,
@@ -438,7 +438,7 @@ void pass_out ()
                                                                                         // loop2
              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
              prefix::REX_W, functions::inc, rm_byte::inc_rcx,                           // inc rcx         
-             prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                       // div r9
+             prefix::REX_WB, functions::mul_div, rm_byte::div_r9,                       // idiv r9
              functions::mov_mem_from_al, rm_byte::dl_rsi,                               // mov byte [rsi], dl 
              prefix::pref_80, functions::add_rsi, (BYTE) 0x30,                          // add byte [rsi], 48       
              prefix::REX_W, functions::inc, rm_byte::dec_rsi,                           // dec rsi

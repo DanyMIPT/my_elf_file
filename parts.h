@@ -9,18 +9,22 @@ const size_t section_header_begin = 0xB0;
 void pass_push     (const unsigned char* binary_code, size_t& i);
 void pass_pop      (const unsigned char* binary_code, size_t& i);
 void pass_mul      ();
+void pass_div      ();
+void pass_add      ();
 void pass_sub      ();
 void pass_in       ();
 void pass_out      ();
-void restore_abcd  ();
-void save_abcd     ();
 void pass_jumps    (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
 void pass_call     (const unsigned char* binary_code, size_t& i, const int* label_binary_code);
 void pass_ret      ();
+void pass_sqrt     ();
 void pass_end      ();
 void make_data     ();  
 void set_text_size (const size_t& size);
 void make_align    (const size_t& align);
+void safe_abcd     ();
+void restore_abcd  ();
+
 
 namespace ELF_HEADER
 {
@@ -195,8 +199,6 @@ void Make_section_header (const QWORD& size1, const QWORD& size2)
 void Make_executable_code (unsigned char* binary_code, size_t file_size, int* label_binary_code)
 {
 
-    size_t j = code_size;
-
     for (size_t i = 8; i < file_size; i++) // skip signature
     {
         label_binary_code[i] = code_size;
@@ -221,9 +223,21 @@ void Make_executable_code (unsigned char* binary_code, size_t file_size, int* la
                 break;
             }
 
+            case DIV:
+            {
+                pass_div ();
+                break;
+            }
+
             case SUB:
             {
                 pass_sub ();
+                break;
+            }
+
+            case ADD:
+            {
+                pass_add ();
                 break;
             }
 
@@ -251,6 +265,12 @@ void Make_executable_code (unsigned char* binary_code, size_t file_size, int* la
                 pass_jumps (binary_code, i, label_binary_code);
                 break;
             }
+    
+            case SQRT:
+            {
+                pass_sqrt ();
+                break;
+            }
 
             case CALL:
             {
@@ -276,11 +296,6 @@ void Make_executable_code (unsigned char* binary_code, size_t file_size, int* la
 
         }
     }
-
-    pass_end ();
-
-    free (binary_code);
-    free (label_binary_code);
 }
 
 void pass_push (const unsigned char* binary_code, size_t& i)
@@ -289,8 +304,8 @@ void pass_push (const unsigned char* binary_code, size_t& i)
     {
         case INT_:
         {
-            set_val (functions::push_byte);
-            set_val ( (BYTE) (*(int*)(&binary_code[i + 2]) * 100) );
+            set_val (functions::push_dword);
+            set_val ( (DWORD) (*(int*)(&binary_code[i + 2]) * 100) );
             i += sizeof (char) + sizeof (int);
             break;
         }
@@ -337,6 +352,8 @@ void pass_mul ()
     set_val (prefix::REX_WB, functions::mov_reg, rm_byte::rax_r14,     // mov r14, rax
              (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
              prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
+             (BYTE) (functions::push_reg + reg_compare[dx]),           // push rdx
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,      // xor rdx, rdx
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r10,     // imul r10
 
 //поддержка  точности
@@ -344,9 +361,10 @@ void pass_mul ()
              (DWORD) 100,
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,     // idiv r13
 //  
-             
+             (BYTE) (functions::pop_reg + reg_compare[dx]),            // pop rdx           
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
+
 }
 
 void pass_sub ()
@@ -357,7 +375,7 @@ void pass_sub ()
              prefix::REX_B,   (BYTE) (functions::push_reg + r9));            // push r9
 } 
 
-void save_abcd ()
+void safe_abcd ()
 {
     set_val ( (BYTE) (functions::push_reg + reg_compare[ax]),                           // push rax
               (BYTE) (functions::push_reg + reg_compare[bx]),                           // push rbx
@@ -373,11 +391,50 @@ void restore_abcd ()
               (BYTE) (functions::pop_reg + reg_compare[ax]));                           // pop rax
 }
 
+
+void pass_sqrt ()
+{
+    set_val (prefix::REX_B,   (BYTE) (functions::pop_reg + r9));                         // pop r9
+    safe_abcd ();
+
+    set_val (prefix::REX_WR, functions::mov_reg, rm_byte::r9_rax,                        // mov rax, r9
+
+//поддержка точности
+             prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,               // mov r9, 100
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                        // xor rdx, rdx
+             prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                        // imul r9
+//
+
+             prefix::REX_W,  functions::xor_reg, rm_byte::rbx_rbx,                       // xor rbx, rbx
+             prefix::REX_W,  prefix::short_, functions::bsr, rm_byte::rax_rcx,           // bsr rcx, rax
+             prefix::pref_80, functions::and_cl, (BYTE) 0xfe,                            // and cl, 0feh
+             (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,                // mov edx, 1
+             prefix::REX_W, functions::shl, rm_byte::cl_rdx,                             // shl rdx, cl
+                                                                                         // refine:
+             prefix::REX_WB, functions::mov_reg, rm_byte::rbx_r8,                        // mov r8, rbx    
+             prefix::REX_WB, functions::add_r_r, rm_byte::rdx_r8,                        // add r8, rdx
+             prefix::REX_WB, functions::cmp, rm_byte::rax_r8,                            // cmp r8, rax
+             jumps::ja_one_byte, fun_distances::jmp_shr,                                 // ja jmp_shr
+             prefix::REX_WR, functions::sub, rm_byte::r8_rax,                            // sub rax, r8   
+             prefix::REX_W, functions::shr, rm_byte::shr_rbx,                            // shr rbx
+             prefix::REX_W, functions::add_r_r, rm_byte::rdx_rbx,                        // add rbx, rdx
+             jumps::jmp_one_byte, fun_distances::next,                                   // jmp next
+                                                                                         // jmp_shr:
+             prefix::REX_W, functions::shr, rm_byte::shr_rbx,                            // shr rbx
+                                                                                         // next:
+             prefix::REX_W, functions::shr_two, rm_byte::shr_rdx_digit, (BYTE) 0x2,      // shr rdx, 2
+             jumps::jne_one_byte, fun_distances::refine,                                 // jne refine
+             prefix::REX_WB, functions::mov_reg, rm_byte::rbx_r9);                       // mov r9, rbx
+                                      
+    restore_abcd ();
+    set_val (prefix::REX_B, (BYTE) (functions::push_reg + r9));                          // push r9
+}
+
 const BYTE minus = 0x2D;
 
 void pass_in ()
 {
-    save_abcd ();
+    safe_abcd ();
 
     set_val ( (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x3,              // mov eax, 3
               (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x2,              // mov ebx, 2
@@ -418,7 +475,8 @@ void pass_in ()
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
                                                                                         // skip_mul:
 //поддержка точности
-              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,            // mov r9, 100
+              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,             // mov r9, 100
+              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // imul r9
 //
 
@@ -436,16 +494,38 @@ void pass_in ()
 void pass_out ()
 {
     set_val (prefix::REX_B, (BYTE) (functions::pop_reg + r13));                         // pop r13
-    save_abcd ();
+    safe_abcd ();
 
     set_val (prefix::REX_WR, (BYTE) (functions::mov_reg  + reg_compare[ax]),            // mov rax, r13 
              rm_byte::r13_rax,
 
+             prefix::REX_W, functions::cmp_digit, rm_byte::rax_digit, (BYTE) 0x0,       // cmp rax, 0
+             jumps::jge_one_byte, fun_distances::skip_min,                              // jge skip_min
+             prefix::REX_WB, functions::mov_dig_rm, rm_byte::dig_r13, (DWORD) -1,       // mov r13, -1
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
+             prefix::REX_WB, functions::mul_div, rm_byte::imul_r13,                     // imul r13
+             prefix::REX_WB, functions::mov_reg, rm_byte::rax_r13,                      // mov r13, rax
+             (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,               // mov eax, 4
+             (BYTE) (functions::mov_dig  + reg_compare[bx]), (DWORD) 0x1,               // mov ebx, 1
+
+             prefix::pref_c6, functions::mov_dig_mem, rm_byte::dig_mem,                 // mov byte [value], '-'
+             (DWORD) (ELF_HEADER::memory_place), (BYTE) '-',
+             
+             prefix::REX_W, (BYTE) (functions::mov_dig  + reg_compare[cx]),             // mov rcx, value
+             (QWORD) (ELF_HEADER::memory_place),
+
+             (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,               // mov edx, 1
+             functions::int80h,
+             prefix::REX_WR, functions::mov_reg, rm_byte::r13_rax,                      // mov rax, r13 
+
 //поддержка  точности
              prefix::REX_B, (BYTE) (functions::mov_dig + r13),                          // mov r13, 100
              (DWORD) 100,
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,                      // idiv r13
 //  
+
+            
 
              prefix::REX_W, functions::mov_mem_plus_digit, 
              (QWORD) (ELF_HEADER::memory_place + PROGRAM_HEADER_CONST::size_address2),  // mov rsi, value + 15h
@@ -467,6 +547,10 @@ void pass_out ()
              prefix::REX_W, functions::mov_reg, rm_byte::rcx_rdx,                       // mov rdx, rcx 
              prefix::REX_W, functions::mov_reg, rm_byte::rsi_rcx,                       // mov rcx, rsi
              prefix::REX_W, functions::inc, rm_byte::inc_rcx,                           // inc rcx                    
+             functions::int80h,
+             (BYTE) (functions::mov_dig  + reg_compare[ax]), (DWORD) 0x4,               // mov eax, 4
+             prefix::pref_c6, functions::add_r_r, (BYTE) 0xA,                           // mov [rcx], 0xA
+             (BYTE) (functions::mov_dig  + reg_compare[dx]), (DWORD) 0x1,               // mov rdx, 1
              functions::int80h);
 
     restore_abcd ();
@@ -499,12 +583,36 @@ void pass_jumps (const unsigned char* binary_code, size_t& i, const int* label_b
                     break;
                 }
 
+                case JAE:
+                {
+                    set_val (prefix::short_, jumps::jae);
+                    break;
+                }
+
+                case JB:
+                {
+                    set_val (prefix::short_, jumps::jb);
+                    break;
+                }
+
+                case JBE: 
+                {
+                    set_val (prefix::short_, jumps::jbe);
+                    break;
+                }
+
                 case JE:
                 {
                     set_val (prefix::short_, jumps::je);
                     break;
                 }
 
+                case JNE: 
+                {
+                    set_val (prefix::short_, jumps::jne);
+                    break;
+                }
+             
                 default:
                 {
                     std::cout << "ERROR";
@@ -554,6 +662,35 @@ void set_text_size (const size_t& size)
 void make_align (const size_t& align)
 {
     set_zero_byte (align);
+}
+
+void pass_add ()
+{
+    set_val (prefix::REX_B,   (BYTE) (functions::pop_reg + r8),              // pop r8
+             prefix::REX_B,   (BYTE) (functions::pop_reg + r9),              // pop r9
+             prefix::REX_WRB, functions::add_r_r, rm_byte::r9_r8,            // add r9, r8
+             prefix::REX_B,   (BYTE) (functions::push_reg + r9));            // push r9
+} 
+
+void pass_div ()
+{
+    set_val (prefix::REX_WB, functions::mov_reg, rm_byte::rax_r14,     // mov r14, rax
+             prefix::REX_B, (BYTE) (functions::pop_reg + r10),         // pop r10
+             (BYTE) (functions::pop_reg + reg_compare[ax]),            // pop rax
+             (BYTE) (functions::push_reg + reg_compare[dx]),           // push rdx
+             prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,      // xor rdx, rdx
+
+//поддержка  точности
+             prefix::REX_B, (BYTE) (functions::mov_dig + r13),         // mov r13, 100
+             (DWORD) 100,
+             prefix::REX_WB, functions::mul_div, rm_byte::imul_r13,    // imul r13
+// 
+            
+             prefix::REX_WB, functions::mul_div, rm_byte::idiv_r10,    // idiv r10
+             (BYTE) (functions::pop_reg + reg_compare[dx]),            // pop rdx
+             (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
+             prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
+
 }
 
 

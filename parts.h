@@ -3,6 +3,7 @@
 char*  code      = nullptr;
 size_t code_size = 0;
 
+constexpr size_t PREC                 = 100;
 constexpr size_t max_size             = 0x100000;
 constexpr size_t section_header_begin = 0xB0;
 
@@ -304,8 +305,9 @@ void pass_push (const unsigned char* binary_code, size_t& i)
     {
         case INT_:
         {
-            set_val (functions::push_dword);
-            set_val ( (DWORD) (*(int*)(&binary_code[i + 2]) * PREC) );
+            set_val (functions::push_dword,
+                     (DWORD) (*(int*)(&binary_code[i + 2]) * PREC) );
+
             i += sizeof (char) + sizeof (int);
             break;
         }
@@ -313,6 +315,7 @@ void pass_push (const unsigned char* binary_code, size_t& i)
         case REG:
         {
             set_val ( (BYTE) (functions::push_reg + reg_compare[binary_code[i + 2]]));
+
             i += 2 * sizeof (char);
             break;
         }
@@ -333,6 +336,7 @@ void pass_pop (const unsigned char* binary_code, size_t& i)
         case REG:
         {
             set_val ( (BYTE) (functions::pop_reg + reg_compare[binary_code[i + 2]]));
+
             i += 2*sizeof (char);
             break;
         }
@@ -358,9 +362,10 @@ void pass_mul ()
 
 //поддержка  точности
              prefix::REX_B, (BYTE) (functions::mov_dig + r13),         // mov r13, 100
-             (DWORD) 100,
+             (DWORD) PREC,
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,     // idiv r13
 //  
+
              (BYTE) (functions::pop_reg + reg_compare[dx]),            // pop rdx           
              (BYTE) (functions::push_reg + reg_compare[ax]),           // push rax
              prefix::REX_WR, functions::mov_reg, rm_byte::r14_rax);    // mov rax, r14
@@ -400,7 +405,7 @@ void pass_sqrt ()
     set_val (prefix::REX_WR, functions::mov_reg, rm_byte::r9_rax,                        // mov rax, r9
 
 //поддержка точности
-             prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,               // mov r9, 100
+             prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) PREC,              // mov r9, 100
              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                        // xor rdx, rdx
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                        // imul r9
 //
@@ -475,8 +480,8 @@ void pass_in ()
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // mul r9
                                                                                         // skip_mul:
 //поддержка точности
-              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 100,             // mov r9, 100
-              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
+              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) PREC,            // mov r9, 100
+              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                      // xor rdx, rdx
               prefix::REX_WB, functions::mul_div, rm_byte::mul_r9,                      // imul r9
 //
 
@@ -520,7 +525,7 @@ void pass_out ()
 
 //поддержка  точности
              prefix::REX_B, (BYTE) (functions::mov_dig + r13),                          // mov r13, 100
-             (DWORD) 100,
+             (DWORD) PREC,
              prefix::REX_W, functions::xor_reg, rm_byte::rdx_rdx,                       // xor rdx, rdx
              prefix::REX_WB, functions::mul_div, rm_byte::mul_r13,                      // idiv r13
 //  
@@ -528,7 +533,7 @@ void pass_out ()
             
 
              prefix::REX_W, functions::mov_mem_plus_digit, 
-             (QWORD) (ELF_HEADER::memory_place + PROGRAM_HEADER_CONST::size_memory),   // mov rsi, value + 15h
+             (QWORD) (ELF_HEADER::memory_place + PROGRAM_HEADER_CONST::size_memory),    // mov rsi, value + 15h
     
     
              prefix::REX_B, (BYTE) (functions::mov_dig + r9), (DWORD) 0xA,              //mov r9, 0xa
@@ -682,7 +687,7 @@ void pass_div ()
 
 //поддержка  точности
              prefix::REX_B, (BYTE) (functions::mov_dig + r13),         // mov r13, 100
-             (DWORD) 100,
+             (DWORD) PREC,
              prefix::REX_WB, functions::mul_div, rm_byte::imul_r13,    // imul r13
 // 
             

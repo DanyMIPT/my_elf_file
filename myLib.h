@@ -33,13 +33,13 @@ int Sizecount ( const char *fname );
  * @param[in] length length of file
  * @return dynamic buffer with text from file
  */
-unsigned char* Buf ( char* name, int length );
+unsigned char* Buf ( const char* name, int length );
 
 /*! Makes a buffer
  * @param[in] name name of file
  * @return dynamic buffer with text from file
  */
-unsigned char* BufferMaker ( char* name);
+unsigned char* BufferMaker ( const char* name);
 
 bool WordCmp ( const char* compare1, const char* compare2 )
 {

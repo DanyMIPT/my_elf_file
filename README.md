@@ -40,3 +40,10 @@
 ![](https://sun1-19.userapi.com/hFm4i6k8QgMe4F7e-9kR4uEonFOYazjoVl1gAA/TeUiqpM4X48.jpg) \
 Проблема решена. Осталось только реализовать функции перевода из моих команд в x86 и транслятор готов!
 
+# Использованная литература
+- Elf file
+1. Executable and Linkable Format (Wikipedia) https://en.wikipedia.org/wiki/Executable_and_Linkable_Format#/media/File:ELF_Executable_and_Linkable_Format_diagram_by_Ange_Albertini.png
+2. https://cirosantilli.com/elf-hello-world#program-header-table
+- Команды x86
+1. Intel manuals https://software.intel.com/content/www/us/en/develop/articles/intel-sdm.html \
+P.S. Особенно этот - https://software.intel.com/content/www/us/en/develop/download/intel-64-and-ia-32-architectures-sdm-combined-volumes-2a-2b-2c-and-2d-instruction-set-reference-a-z.html
